@@ -1,8 +1,8 @@
 Public Sub Schaltflaeche_Klicken()
 
 
-Dim Worksheet As Worksheet
-Set Worksheet = ActiveSheet
+Dim ws As Worksheet
+Set ws = ActiveSheet
 
 Dim mailTextVorlage As String
 mailTextVorlage = Sheets("_Email").Shapes(1).TextFrame2.TextRange.Text
@@ -54,7 +54,6 @@ For iRow = 2 To tabelleDaten.ListRows.Count + 1
     
     '--------------------------------------------------------------
     If Not (unternehmer = "" Or empfaenger = "" Or empfaengerMail = "" Or ds = 0 Or otd = 0) Then
-    
         ds = Delta_Berechnen(ds, ziel_ds)
         otd = Delta_Berechnen(otd, ziel_otd)
         ds_vw = Delta_Berechnen(ds_vw, ziel_ds)
@@ -79,102 +78,98 @@ For iRow = 2 To tabelleDaten.ListRows.Count + 1
         
         'mail senden
         Dim senden_Status As String
-        senden_Status = Send_Mail(empfaengerMail, cc, mailBetreff, mailText, anhang)
+        senden_Status = sendMail(empfaengerMail, cc, mailBetreff, mailText, anhang)
     Else
         MsgBox ("Die Daten in Zeile " & iRow - 1 & " der Tabelle sind nicht Vollständig. Zum Versenden der Mail müssen 'Unternehmer', 'Empfänger', 'Email', 'DS' und 'OTD' ausgefüllt sein")
     End If
-    
 Next
 
 End Sub
 
 
-Public Function Send_Mail(ByVal adresse_An As String, ByVal adressen_CC As String, ByVal betreff As String, ByVal htmlText As String, ByVal anhangPath As String)
+Public Function sendMail(ByVal addressTo As String, ByVal addressCC As String, ByVal betreff As String, ByVal htmlText As String)
     On Error Resume Next
     
-    If adresse_An Like "" Then
-        MsgBox ("Eine Email konnte nicht versendet werden da keine Emailadresse in der Spalte 'Email' angegeben ist.")
+    'check if recipient exists
+    If addressTo Like "" Then
+        MsgBox ("Failed to send mail. No recipient found.")
         Exit Function
     End If
 
-    Dim app_Outlook As Object
-    Set app_Outlook = CreateObject("Outlook.Application")
-    
+    Dim appOutlook As Object
+    Set appOutlook = CreateObject("Outlook.Application")
     Dim email As Object
-    Set email = app_Outlook.CreateItem(0)
+    Set email = appOutlook.CreateItem(0)
 
-    'Adressen einfügen
-    email.To = adresse_An
-    If Not adressen_CC Like "" Then
-        Dim adressen_CC_Array() As String
-        adressen_CC_Array = Split(adressen_CC, ";")
-        email.cc = adressen_CC_Array
-        'Dim ccAdresse
-        'For Each ccAdresse In adressen_CC_Array
-        '    email.cc.Add ccAdresse
-        'Next
+    'adding recipient and CC
+    email.To = addressTo
+    If Not addressCC Like "" Then
+         Dim addressCC_Array() As String
+         addressCC_Array = Split(addressCC, ";")
+         email.cc = addressCC_Array
     End If
 
     email.Subject = betreff
     email.BodyFormat = olFormatHTML
-    email.GetInspector 'Signatur anfügen
+    email.GetInspector 'add signatur to end of mail
     email.HTMLBody = htmlText & email.HTMLBody
     
-    If ActiveWorkbook.Worksheets("_State").Cells(1, 2).Value = "Wahr" Then
+    'Show email if cell is true
+     If ActiveWorkbook.Worksheets("_State").Cells(1, 2).Value = "true" Then
         email.Display True
-    ElseIf ActiveWorkbook.Worksheets("_State").Cells(1, 2).Value = "Falsch" Then
+    'Send mail right away if cell is false
+    ElseIf ActiveWorkbook.Worksheets("_State").Cells(1, 2).Value = "false" Then
         email.Send
     Else
-        MsgBox ("Fehler bei der Abfrage ob Email angezeigt werden soll.")
+        MsgBox ("Failed check if mail should be displayed or not. Set Cell (1, 2) on Worksheet '_State' to true or false.")
     End If
         
     Set email = Nothing
-    Set app_Outlook = Nothing
+    Set appOutlook = Nothing
 
 End Function
 
 
-Private Function Verb_Ermitteln(ByVal ds As Double, ByVal otd As Double) As String
-    
-    If ds >= 0 And otd >= 0 Then
-        Verb_Ermitteln = "übertroffen"
-        Exit Function
-    ElseIf ds < 0 And otd < 0 Then
-        Verb_Ermitteln = "unterschritten"
-        Exit Function
-    Else
-        Verb_Ermitteln = "übertroffen/unterschritten"
-        Exit Function
-    End If
-    
-    Verb_Ermitteln = "übertroffen/unterschritten"
+'Private Function Verb_Ermitteln(ByVal ds As Double, ByVal otd As Double) As String
+'    If ds >= 0 And otd >= 0 Then
+'        Verb_Ermitteln = "übertroffen"
+'        Exit Function
+'    ElseIf ds < 0 And otd < 0 Then
+'        Verb_Ermitteln = "unterschritten"
+'        Exit Function
+'    Else
+'        Verb_Ermitteln = "übertroffen/unterschritten"
+'        Exit Function
+'    End If
+'    
+'    Verb_Ermitteln = "übertroffen/unterschritten"
+'End Function
 
-End Function
+                                
+'Private Function Zahlen_Faerben(ByVal wert As Double) As String
+'    Dim ausgabe As String
+'
+'    If wert >= 0 Then
+'        ausgabe = "<font color='00b803'>+" & wert & " %</font>"
+'        Zahlen_Faerben = ausgabe
+'        Exit Function
+'    ElseIf wert < 0 Then
+'        ausgabe = "<font color='de0707'>" & wert & " %</font>"
+'        Zahlen_Faerben = ausgabe
+'        Exit Function
+'    End If
+'    
+'    Zahlen_Faerben = wert & " %"
+'End Function
 
-Private Function Zahlen_Faerben(ByVal wert As Double) As String
-    Dim ausgabe As String
 
-    If wert >= 0 Then
-        ausgabe = "<font color='00b803'>+" & wert & " %</font>"
-        Zahlen_Faerben = ausgabe
-        Exit Function
-    ElseIf wert < 0 Then
-        ausgabe = "<font color='de0707'>" & wert & " %</font>"
-        Zahlen_Faerben = ausgabe
-        Exit Function
-    End If
-    
-    Zahlen_Faerben = wert & " %"
-End Function
-
-
-Private Function Delta_Berechnen(ByVal wert As Double, ByVal vergleich As Double) As Double
-    Dim ergebnis As Double
-    ergebnis = wert - vergleich
-    ergebnis = Math.Round(ergebnis, 2)
-    
-    Delta_Berechnen = ergebnis
-End Function
+'Private Function Delta_Berechnen(ByVal wert As Double, ByVal vergleich As Double) As Double
+'    Dim ergebnis As Double
+'    ergebnis = wert - vergleich
+'    ergebnis = Math.Round(ergebnis, 2)
+'    
+'    Delta_Berechnen = ergebnis
+'End Function
 
 
 Private Function Fahrerliste_erstellen(ByVal unternehmer As String) As String
